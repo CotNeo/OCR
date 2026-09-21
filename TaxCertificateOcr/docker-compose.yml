@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------------------
+# Docker is the SECONDARY path. Native local development is the primary target.
+#
+# Apple Silicon (M1/M2/M3):
+#   The `ocr` service below does NOT run natively. paddlepaddle publishes no
+#   linux/aarch64 wheel, so the image only works under x86_64 emulation, which is
+#   several times slower and far more memory-hungry - unusable on 8 GB.
+#
+#   Simplest option - run both natively, no container networking involved:
+#     Terminal 1:  ./scripts/run-ocr-service.sh
+#     Terminal 2:  ./scripts/run-api.sh
+#
+#   Or containerise just the API against the host-native OCR service. The OCR service must
+#   bind beyond loopback for the container to reach it:
+#     Terminal 1:  OCR_HOST=0.0.0.0 ./scripts/run-ocr-service.sh
+#     Terminal 2:  docker compose up api --build
+#
+# x86_64 Linux / Windows hosts:
+#   The full stack works:  docker compose --profile full up --build
+# ---------------------------------------------------------------------------------------
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/TaxCertificate.Api/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      # Default target is the host-native OCR service - the supported Apple Silicon setup.
+      # Override to http://ocr:8001 when running the full profile on x86_64.
+      Ocr__BaseUrl: "${OCR_BASE_URL:-http://host.docker.internal:8001}"
+      Ocr__TimeoutSeconds: "120"
+      Ocr__IncludeRawResult: "false"
+      Upload__MaxConcurrentAnalyses: "2"
+    extra_hosts:
+      # Required for host.docker.internal to resolve on Docker Engine for Linux.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  ocr:
+    # Only started with `--profile full`, so it never launches by accident on Apple Silicon.
+    profiles: ["full"]
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    ports:
+      - "8001:8001"
+    environment:
+      OCR_ENABLE_MKLDNN: "false"
+      OCR_CPU_THREADS: "4"
+      OCR_MAX_CONCURRENCY: "1"
+      OCR_MAX_IMAGE_SIDE: "1600"
+    volumes:
+      # Persist the ~90 MB model cache so a container restart does not re-download it.
+      - paddle-models:/home/ocruser/.paddlex
+    # The engine loads models lazily on first use; give startup room before probing.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if b'healthy' in urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5).read() else 1)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    restart: unless-stopped
+
+volumes:
+  paddle-models:

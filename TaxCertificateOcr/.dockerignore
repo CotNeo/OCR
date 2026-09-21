@@ -1,0 +1,26 @@
+# Host build output must never enter the image: a stale project.assets.json from the host
+# points at the host's NuGet paths, which makes `dotnet publish --no-restore` fail with
+# NETSDK1064 inside the container.
+**/bin/
+**/obj/
+**/.vs/
+**/TestResults/
+
+# Python local state
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+
+# Model cache (downloaded at runtime, ~90 MB)
+**/.paddlex/
+
+# Repo noise
+.git/
+.gitignore
+**/*.log
+**/.DS_Store
+**/.idea/
+**/.vscode/
+tests/
+docs/

@@ -1,0 +1,36 @@
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+TestResults/
+*.trx
+coverage*.json
+coverage*.xml
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- PaddleOCR / PaddleX model cache ---
+# Models are downloaded on first run (~90 MB) and must never be committed.
+.paddlex/
+paddlex_cache/
+*.pdmodel
+*.pdiparams
+*.onnx
+
+# --- local runtime output ---
+*.log
+logs/
+.DS_Store
+.idea/
+.vscode/

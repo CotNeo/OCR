@@ -1,0 +1,30 @@
+@host = http://localhost:5000
+
+### API health (also probes the Python OCR service)
+GET {{host}}/health
+
+### OCR service health (direct)
+GET http://127.0.0.1:8001/health
+
+### Analyze a vergi levhası
+# Paths are relative to this file. Adjust to point at your own document.
+POST {{host}}/api/vergi-levhasi/analyze
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="sample_levha.pdf"
+Content-Type: application/pdf
+
+< ../../tests/samples/sample_levha.pdf
+--boundary--
+
+### Reject a non-certificate document -> 422 NOT_TAX_CERTIFICATE
+POST {{host}}/api/vergi-levhasi/analyze
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="not_a_levha.png"
+Content-Type: image/png
+
+< ../../tests/samples/not_a_levha.png
+--boundary--

@@ -1,0 +1,24 @@
+# Pinned for Apple Silicon (macOS arm64) + Python 3.10-3.13.
+# All wheels below publish macosx_11_0_arm64 builds, so nothing compiles from source.
+
+# --- OCR engine -----------------------------------------------------------------------
+# paddlepaddle is the CPU build. Do NOT install paddlepaddle-gpu: there is no CUDA on
+# Apple Silicon, and Paddle has no stable MPS backend, so CPU is the supported path.
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+
+# --- web layer ------------------------------------------------------------------------
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+python-multipart==0.0.32
+
+# --- imaging / PDF --------------------------------------------------------------------
+# pypdfium2 is permissively licensed (BSD-3-Clause/Apache-2.0) and needs no system Poppler,
+# unlike pdf2image. PyMuPDF was rejected because of its AGPL licence.
+pypdfium2==5.13.0
+pillow==12.3.0
+
+# cv2 is imported directly by app/preprocessing.py. It is pinned to the exact build that
+# paddleocr's own dependency chain resolves. Do NOT add opencv-python-headless alongside
+# this: two distributions both providing the `cv2` module shadow each other unpredictably.
+opencv-contrib-python==4.10.0.84
