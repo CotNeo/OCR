@@ -111,14 +111,17 @@ app.UseSwaggerUI(options =>
     options.DocumentTitle = "Tax Certificate OCR API";
 });
 
+// Serves wwwroot/index.html at "/" - a dependency-free upload/inspect page for local
+// testing. Same-origin, so no CORS configuration is needed. UseDefaultFiles must run
+// before UseStaticFiles for the "/" -> index.html rewrite to take effect.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
 
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = HealthResponseWriter.WriteAsync,
 });
-
-// Swagger UI is the intended landing page for a local PoC.
-app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
 app.Run();

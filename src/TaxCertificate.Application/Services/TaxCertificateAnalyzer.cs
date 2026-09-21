@@ -77,9 +77,14 @@ public sealed class TaxCertificateAnalyzer : ITaxCertificateAnalyzer
             PiiMasking.MaskIdentityNumber(result.Data?.Tckn) ?? "<none>");
 
         return _options.IncludeRawResult
-            ? result with { RawOcr = ToRawBlocks(document) }
+            ? result with { RawOcr = ToRawBlocks(document), OcrPages = ToRawPages(document) }
             : result;
     }
+
+    private static List<RawOcrPage> ToRawPages(OcrDocument document)
+        => document.Pages
+            .Select(p => new RawOcrPage(p.PageNumber, p.Width, p.Height, Math.Round(p.AppliedRotation, 2)))
+            .ToList();
 
     private static List<RawOcrBlock> ToRawBlocks(OcrDocument document)
         => document.AllBlocks

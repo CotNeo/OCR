@@ -84,6 +84,12 @@ public sealed record RawOcrBlock(
     double X2,
     double Y2);
 
+/// <summary>
+/// Geometry of one OCR page, emitted alongside <c>rawOcr</c> so a debug viewer can scale block
+/// overlays. Debug-only, like rawOcr itself.
+/// </summary>
+public sealed record RawOcrPage(int Page, int Width, int Height, double AppliedRotation);
+
 public sealed record AnalysisResult
 {
     public required bool Success { get; init; }
@@ -101,6 +107,10 @@ public sealed record AnalysisResult
     /// <summary>Populated only when Ocr:IncludeRawResult is enabled; omitted from JSON otherwise.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<RawOcrBlock>? RawOcr { get; init; }
+
+    /// <summary>Page dimensions for the blocks in <see cref="RawOcr"/>. Debug-only.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<RawOcrPage>? OcrPages { get; init; }
 
     public static AnalysisResult Failure(string code, string message, string documentType = DocumentTypes.Unknown)
         => new()

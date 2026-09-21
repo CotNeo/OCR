@@ -22,6 +22,12 @@ public sealed record OcrPage
     public required int Width { get; init; }
     public required int Height { get; init; }
     public required IReadOnlyList<OcrBlock> Blocks { get; init; }
+
+    /// <summary>
+    /// Degrees of deskew the OCR service applied before recognition. Block coordinates are in
+    /// that rotated space, so a debug viewer needs this to line boxes up with the original file.
+    /// </summary>
+    public double AppliedRotation { get; init; }
 }
 
 public sealed record OcrDocument

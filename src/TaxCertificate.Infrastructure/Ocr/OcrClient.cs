@@ -213,6 +213,7 @@ public sealed class OcrClient : IOcrClient
                 Width = page.Width,
                 Height = page.Height,
                 Blocks = blocks,
+                AppliedRotation = page.AppliedRotation,
             });
         }
 

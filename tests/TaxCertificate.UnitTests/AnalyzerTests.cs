@@ -88,6 +88,30 @@ public class AnalyzerTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_emits_page_geometry_alongside_raw_ocr()
+    {
+        // The debug viewer scales its block overlay by these dimensions, so they must travel
+        // with rawOcr and be gated by the same flag.
+        var result = await Create(Certificate(), includeRaw: true)
+            .AnalyzeAsync(Payload(), "x.png", "image/png", default);
+
+        var page = Assert.Single(result.OcrPages!);
+        Assert.Equal(1, page.Page);
+        Assert.Equal(1240, page.Width);
+        Assert.Equal(1754, page.Height);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_omits_page_geometry_when_raw_ocr_is_disabled()
+    {
+        var result = await Create(Certificate())
+            .AnalyzeAsync(Payload(), "x.png", "image/png", default);
+
+        Assert.Null(result.OcrPages);
+        Assert.Null(result.RawOcr);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_reports_no_text_detected_for_an_empty_document()
     {
         var empty = new OcrDocument

@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vergi Levhası OCR — Test Arayüzü</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232f6feb'/%3E%3Cg fill='white'%3E%3Crect x='4' y='4' width='8' height='1.4' rx='.7'/%3E%3Crect x='4' y='7.3' width='8' height='1.4' rx='.7'/%3E%3Crect x='4' y='10.6' width='5' height='1.4' rx='.7'/%3E%3C/g%3E%3C/svg%3E">
+<!--
+  Served by the API itself from wwwroot, so it is same-origin: no CORS setup needed.
+  Deliberately dependency-free (no CDN, no framework) - the whole point of this project is
+  that it runs with no external network access.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #dfe3e8;
+    --text: #1b1f24;
+    --muted: #616a75;
+    --accent: #2f6feb;
+    --ok: #1a7f45;
+    --warn: #9a6400;
+    --err: #c0362c;
+    --code-bg: #f2f3f5;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --panel: #1c2024;
+      --border: #30363d;
+      --text: #e6e9ed;
+      --muted: #9aa4b0;
+      --accent: #6b9bff;
+      --ok: #4ec27e;
+      --warn: #e0a83a;
+      --err: #ff7b6b;
+      --code-bg: #12151a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  header { margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .sub a { color: var(--accent); }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  /* ---------- drop zone ---------- */
+  #drop {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  #drop strong { display: block; margin-bottom: 4px; }
+  #drop span { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  button {
+    font: inherit; font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .fileinfo { color: var(--muted); font-size: 13px; }
+  /* ---------- status ---------- */
+  #status { margin-bottom: 16px; }
+  .msg { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); }
+  .msg.err { border-color: var(--err); color: var(--err); }
+  .msg.busy { color: var(--muted); }
+  /* ---------- layout ---------- */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+  h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  /* ---------- fields ---------- */
+  .field { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .field:last-child { border-bottom: 0; }
+  .field .k { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .field .v { font-size: 15px; word-break: break-word; margin-top: 2px; }
+  .field .v.empty { color: var(--muted); font-style: italic; }
+  .bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ok); }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px;
+    border: 1px solid currentColor;
+  }
+  .badge.ok { color: var(--ok); }
+  .badge.bad { color: var(--err); }
+  .pct { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+  /* ---------- summary ---------- */
+  .kpis { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }
+  .kpi .n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+  /* ---------- warnings ---------- */
+  .warn-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .warn-item:last-child { border-bottom: 0; }
+  .warn-item code { color: var(--warn); font-weight: 600; }
+  .none { color: var(--muted); font-size: 13px; }
+  /* ---------- preview + overlay ---------- */
+  #previewBox { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+  #previewImg { max-width: 100%; height: auto; border-radius: 6px; }
+  .boxlayer { position: absolute; transform-origin: center center; pointer-events: none; }
+  .box {
+    position: absolute; border: 1px solid rgba(47,111,235,.85);
+    background: rgba(47,111,235,.10); pointer-events: none;
+  }
+  .box.low { border-color: rgba(192,54,44,.9); background: rgba(192,54,44,.12); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  /* ---------- json ---------- */
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; overflow: auto; max-height: 480px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+  .scroll { overflow: auto; max-height: 420px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vergi Levhası OCR</h1>
+    <div class="sub">
+      Tamamen lokal PP-OCRv5 + deterministic parser.
+      <a href="/swagger">Swagger</a> · <a href="/health">/health</a>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div id="drop">
+      <strong>Vergi levhasını buraya bırakın</strong>
+      <span>veya tıklayıp seçin — PDF, JPEG, PNG (maks. 10 MB)</span>
+      <input type="file" id="file" accept="application/pdf,image/jpeg,image/png" hidden>
+    </div>
+    <div class="row">
+      <button class="primary" id="send" disabled>Analiz et</button>
+      <button id="reset" hidden>Temizle</button>
+      <span class="fileinfo" id="fileinfo"></span>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <div id="result" hidden>
+    <div class="panel">
+      <h2>Özet</h2>
+      <div class="kpis" id="kpis"></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <div class="panel">
+          <h2>Alanlar</h2>
+          <div id="fields"></div>
+        </div>
+        <div class="panel">
+          <h2>Uyarılar</h2>
+          <div id="warnings"></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" id="previewPanel" hidden>
+          <h2>Görüntü ve OCR blokları</h2>
+          <div id="previewBox"><img id="previewImg" alt="Yüklenen belge"></div>
+          <div class="hint" id="previewHint"></div>
+        </div>
+        <div class="panel" id="blocksPanel" hidden>
+          <h2>OCR blokları</h2>
+          <div class="scroll">
+            <table>
+              <thead><tr><th>Metin</th><th class="num">Güven</th></tr></thead>
+              <tbody id="blocksBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="margin-top:0; justify-content:space-between">
+        <h2 style="margin:0">Ham JSON</h2>
+        <button id="copy">Kopyala</button>
+      </div>
+      <pre id="json"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var drop = document.getElementById("drop");
+  var fileInput = document.getElementById("file");
+  var sendBtn = document.getElementById("send");
+  var resetBtn = document.getElementById("reset");
+  var fileInfo = document.getElementById("fileinfo");
+  var statusEl = document.getElementById("status");
+  var resultEl = document.getElementById("result");
+  var copyBtn = document.getElementById("copy");
+
+  var selected = null;
+  var previewUrl = null;
+  var lastJson = "";
+
+  // Field order and labels, mirroring the API's `data` object.
+  var FIELDS = [
+    ["vkn", "VKN", "vkn"],
+    ["tckn", "TCKN", "tckn"],
+    ["ticaretUnvani", "Ticaret Unvanı", "ticaretUnvani"],
+    ["adiSoyadi", "Adı Soyadı", "adiSoyadi"],
+    ["vergiDairesi", "Vergi Dairesi", "vergiDairesi"],
+    ["adres", "Adres", "adres"],
+    ["iseBaslamaTarihi", "İşe Başlama Tarihi", "iseBaslamaTarihi"],
+    ["anaFaaliyetKodu", "Ana Faaliyet Kodu", "anaFaaliyetKodu"],
+    ["anaFaaliyetAciklamasi", "Ana Faaliyet Açıklaması", "anaFaaliyetAciklamasi"]
+  ];
+
+  function setStatus(html, cls) {
+    statusEl.innerHTML = html ? '<div class="msg ' + (cls || "") + '">' + html + "</div>" : "";
+  }
+
+  function esc(v) {
+    return String(v).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function kb(n) {
+    return n < 1024 * 1024
+      ? (n / 1024).toFixed(0) + " KB"
+      : (n / 1024 / 1024).toFixed(2) + " MB";
+  }
+
+  function pct(v) {
+    return typeof v === "number" ? (v * 100).toFixed(1) + "%" : "";
+  }
+
+  // ---------------------------------------------------------------- file selection
+  function select(file) {
+    if (!file) return;
+    selected = file;
+    fileInfo.textContent = file.name + " · " + kb(file.size) + " · " + (file.type || "bilinmeyen tür");
+    sendBtn.disabled = false;
+    resetBtn.hidden = false;
+    setStatus("");
+  }
+
+  drop.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () { select(fileInput.files[0]); });
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) select(e.dataTransfer.files[0]);
+  });
+
+  resetBtn.addEventListener("click", function () {
+    selected = null;
+    fileInput.value = "";
+    fileInfo.textContent = "";
+    sendBtn.disabled = true;
+    resetBtn.hidden = true;
+    resultEl.hidden = true;
+    setStatus("");
+    revokePreview();
+  });
+
+  function revokePreview() {
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+  }
+
+  // ---------------------------------------------------------------- submit
+  sendBtn.addEventListener("click", function () {
+    if (!selected) return;
+
+    var form = new FormData();
+    form.append("file", selected, selected.name);
+
+    sendBtn.disabled = true;
+    resultEl.hidden = true;
+    setStatus("Analiz ediliyor… ilk istek model ısınması nedeniyle daha uzun sürebilir.", "busy");
+
+    var started = Date.now();
+
+    fetch("/api/vergi-levhasi/analyze", { method: "POST", body: form })
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var body;
+          try { body = JSON.parse(text); }
+          catch (e) { body = { parseError: true, raw: text }; }
+          return { status: res.status, body: body };
+        });
+      })
+      .then(function (r) {
+        render(r.status, r.body, Date.now() - started);
+      })
+      .catch(function (err) {
+        // A network-level failure means the API itself is unreachable.
+        setStatus("İstek gönderilemedi: " + esc(err.message) +
+          " — API çalışıyor mu? <code>./scripts/run-api.sh</code>", "err");
+      })
+      .then(function () { sendBtn.disabled = false; });
+  });
+
+  // ---------------------------------------------------------------- render
+  function render(status, body, elapsedMs) {
+    lastJson = JSON.stringify(body, null, 2);
+    document.getElementById("json").textContent = lastJson;
+    resultEl.hidden = false;
+
+    if (!body || body.success !== true) {
+      var code = body && body.error ? body.error.code : "HTTP_" + status;
+      var message = body && body.error ? body.error.message : "Beklenmeyen yanıt.";
+      setStatus("<strong>" + esc(code) + "</strong> (HTTP " + status + ") — " + esc(message), "err");
+      renderKpis(body, status, elapsedMs);
+      renderFields(body);
+      renderWarnings(body);
+      hidePreview();
+      return;
+    }
+
+    setStatus("");
+    renderKpis(body, status, elapsedMs);
+    renderFields(body);
+    renderWarnings(body);
+    renderPreview(body);
+    renderBlocks(body);
+  }
+
+  function renderKpis(body, status, elapsedMs) {
+    var conf = body && body.confidence ? body.confidence : {};
+    var found = 0;
+    if (body && body.data) {
+      FIELDS.forEach(function (f) {
+        if (body.data[f[0]] !== null && body.data[f[0]] !== undefined) found++;
+      });
+    }
+
+    var items = [
+      [body && body.success ? "Başarılı" : "Başarısız", "Sonuç"],
+      [esc((body && body.documentType) || "—"), "Belge tipi"],
+      [typeof conf.overall === "number" ? pct(conf.overall) : "—", "Genel güven"],
+      [typeof conf.documentType === "number" ? pct(conf.documentType) : "—", "Belge tipi güveni"],
+      [found + " / " + FIELDS.length, "Bulunan alan"],
+      [(elapsedMs / 1000).toFixed(2) + " s", "Süre (HTTP " + status + ")"]
+    ];
+
+    document.getElementById("kpis").innerHTML = items.map(function (it) {
+      return '<div class="kpi"><div class="n">' + it[0] + '</div><div class="l">' + it[1] + "</div></div>";
+    }).join("");
+  }
+
+  function renderFields(body) {
+    var data = (body && body.data) || {};
+    var conf = (body && body.confidence) || {};
+    var validation = (body && body.validation) || {};
+
+    var html = FIELDS.map(function (f) {
+      var key = f[0], label = f[1], confKey = f[2];
+      var value = data[key];
+      var c = conf[confKey];
+      var v = validation[key];
+
+      var badge = "";
+      if (v && typeof v.valid === "boolean") {
+        badge = v.valid
+          ? '<span class="badge ok">checksum ✓</span>'
+          : '<span class="badge bad">checksum ✗</span>';
+      }
+
+      var bar = typeof c === "number"
+        ? '<div class="bar"><i style="width:' + (c * 100).toFixed(1) + '%"></i></div>'
+        : "";
+
+      var shown = (value === null || value === undefined || value === "")
+        ? '<div class="v empty">bulunamadı</div>'
+        : '<div class="v">' + esc(value) + "</div>";
+
+      return '<div class="field"><div class="k">' + esc(label) + badge +
+        '<span class="pct">' + pct(c) + "</span></div>" + shown + bar + "</div>";
+    }).join("");
+
+    // The raw NACE code is extra context, shown only when it differs from the normalised form.
+    if (data.anaFaaliyetKoduRaw && data.anaFaaliyetKoduRaw !== data.anaFaaliyetKodu) {
+      html += '<div class="field"><div class="k">Ana Faaliyet Kodu (ham)</div><div class="v">' +
+        esc(data.anaFaaliyetKoduRaw) + "</div></div>";
+    }
+
+    document.getElementById("fields").innerHTML = html;
+  }
+
+  function renderWarnings(body) {
+    var list = (body && body.warnings) || [];
+    var el = document.getElementById("warnings");
+
+    if (!list.length) {
+      el.innerHTML = '<div class="none">Uyarı yok.</div>';
+      return;
+    }
+
+    el.innerHTML = list.map(function (w) {
+      var field = w.field ? " · <em>" + esc(w.field) + "</em>" : "";
+      return '<div class="warn-item"><code>' + esc(w.code) + "</code>" + field +
+        "<br>" + esc(w.message) + "</div>";
+    }).join("");
+  }
+
+  // ---------------------------------------------------------------- preview + overlay
+  function hidePreview() {
+    document.getElementById("previewPanel").hidden = true;
+    document.getElementById("blocksPanel").hidden = true;
+  }
+
+  function renderPreview(body) {
+    var panel = document.getElementById("previewPanel");
+    var img = document.getElementById("previewImg");
+    var boxWrap = document.getElementById("previewBox");
+    var hint = document.getElementById("previewHint");
+
+    // PDFs cannot be previewed without a PDF renderer, and pulling one from a CDN would
+    // break the offline guarantee. Fields and JSON are still shown for PDFs.
+    if (!selected || selected.type === "application/pdf") {
+      panel.hidden = true;
+      return;
+    }
+
+    panel.hidden = false;
+    revokePreview();
+    previewUrl = URL.createObjectURL(selected);
+    img.src = previewUrl;
+
+    img.onload = function () {
+      // Remove any overlay from a previous run.
+      Array.prototype.slice.call(boxWrap.querySelectorAll(".boxlayer")).forEach(function (l) {
+        l.parentNode.removeChild(l);
+      });
+
+      var pages = body.ocrPages || [];
+      var blocks = body.rawOcr || [];
+
+      if (!pages.length || !blocks.length) {
+        hint.textContent = blocks.length
+          ? "Blok koordinatlarını ölçeklemek için sayfa boyutu gelmedi."
+          : "Ham OCR çıktısı kapalı (Ocr:IncludeRawResult = false), bu yüzden kutu gösterilemiyor.";
+        return;
+      }
+
+      var page = pages[0];
+
+      // Blocks live in the processed-image space: resized, and possibly deskewed onto a larger
+      // canvas. Rather than transform every box, build one layer the size of that canvas,
+      // centre it over the preview and rotate it back onto the original.
+      //
+      // Sign: the service deskews by rotating the page counter-clockwise by `appliedRotation`,
+      // so mapping a box back onto the untouched original is the inverse - a clockwise turn by
+      // the same angle. CSS rotate() is already clockwise-positive, so the angle is used as-is.
+      // Deskewing expands the canvas, so page.width/height no longer share the original's
+      // aspect ratio and a single width-derived scale would misplace the layer vertically.
+      // Recover the pre-rotation size (w0, h0) from the expanded size by inverting
+      //   W = w0*cos + h0*sin ,  H = w0*sin + h0*cos
+      // and scale by that instead. Rotation happens about the centre, so the layer is centred
+      // on the image rather than pinned to a corner.
+      var rot = page.appliedRotation || 0;
+      var rad = Math.abs(rot) * Math.PI / 180;
+      var cos = Math.cos(rad);
+      var sin = Math.sin(rad);
+      var denom = cos * cos - sin * sin;
+      var w0 = page.width;
+      var h0 = page.height;
+      if (rot && Math.abs(denom) > 1e-6) {
+        w0 = (page.width * cos - page.height * sin) / denom;
+        h0 = (page.height * cos - page.width * sin) / denom;
+      }
+
+      var scale = img.clientWidth / w0;
+      var layerW = page.width * scale;
+      var layerH = page.height * scale;
+
+      var layer = document.createElement("div");
+      layer.className = "boxlayer";
+      layer.style.width = layerW + "px";
+      layer.style.height = layerH + "px";
+      layer.style.left = (img.clientWidth / 2 - layerW / 2) + "px";
+      layer.style.top = (img.clientHeight / 2 - layerH / 2) + "px";
+      if (rot) {
+        layer.style.transform = "rotate(" + rot + "deg)";
+      }
+
+      blocks.filter(function (b) { return b.page === page.page; }).forEach(function (b) {
+        var d = document.createElement("div");
+        d.className = "box" + (b.confidence < 0.8 ? " low" : "");
+        d.style.left = (b.x1 * scale) + "px";
+        d.style.top = (b.y1 * scale) + "px";
+        d.style.width = ((b.x2 - b.x1) * scale) + "px";
+        d.style.height = ((b.y2 - b.y1) * scale) + "px";
+        d.title = b.text + "  (" + pct(b.confidence) + ")";
+        layer.appendChild(d);
+      });
+      boxWrap.appendChild(layer);
+
+      var notes = [blocks.length + " blok. Kutu üzerine gelin: metin ve güven skoru. Kırmızı = güven < 80%."];
+      if (page.appliedRotation) {
+        // Recognition ran on a deskewed copy; the layer above is counter-rotated to match.
+        notes.push("Deskew " + page.appliedRotation.toFixed(1) +
+          "° uygulandı; kutular orijinal görüntüye hizalanmak için geri döndürüldü.");
+      }
+      if (pages.length > 1) {
+        notes.push("Belge " + pages.length + " sayfa; yalnızca 1. sayfa gösteriliyor.");
+      }
+      hint.textContent = notes.join(" ");
+    };
+  }
+
+  function renderBlocks(body) {
+    var blocks = body.rawOcr || [];
+    var panel = document.getElementById("blocksPanel");
+
+    if (!blocks.length) {
+      panel.hidden = true;
+      return;
+    }
+
+    panel.hidden = false;
+    document.getElementById("blocksBody").innerHTML = blocks.map(function (b) {
+      return "<tr><td>" + esc(b.text) + '</td><td class="num">' + pct(b.confidence) + "</td></tr>";
+    }).join("");
+  }
+
+  // ---------------------------------------------------------------- copy
+  copyBtn.addEventListener("click", function () {
+    function done() {
+      copyBtn.textContent = "Kopyalandı";
+      setTimeout(function () { copyBtn.textContent = "Kopyala"; }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(lastJson).then(done, function () {});
+    } else {
+      // Older/insecure-context fallback.
+      var ta = document.createElement("textarea");
+      ta.value = lastJson;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
+</body>
+</html>

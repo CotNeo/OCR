@@ -19,6 +19,7 @@ cache'lenir).
 - [.NET setup](#net-setup)
 - [Run OCR service](#run-ocr-service)
 - [Run API](#run-api)
+- [Test arayüzü](#test-arayüzü)
 - [Swagger](#swagger)
 - [Example request](#example-request)
 - [Example response](#example-response)
@@ -210,10 +211,39 @@ service is down rather than waiting out a retry delay.
 
 For a full end-to-end check: `./scripts/smoke-test.sh`
 
+## Test arayüzü
+
+<http://localhost:5000> — API'nin kendisi tarafından `wwwroot/index.html` olarak servis edilen
+tek dosyalık bir sayfa. Vergi levhasını sürükleyip bırakın veya seçin, `Analiz et` deyin.
+
+Gösterdikleri:
+
+- **Özet** — sonuç, belge tipi, genel güven, belge tipi güveni, bulunan alan sayısı, süre
+- **Alanlar** — her alanın değeri, güven çubuğu ve VKN/TCKN için `checksum ✓/✗` rozeti
+- **Uyarılar** — kod + mesaj + ilgili alan
+- **Görüntü ve OCR blokları** — yüklenen görüntü üzerine çizilmiş bounding box'lar; kutunun
+  üzerine gelince metin ve güven skoru görünür, güveni %80 altındakiler kırmızı
+- **OCR blokları** — okunan tüm satırlar ve skorları
+- **Ham JSON** — tam yanıt, kopyalama düğmesiyle
+
+Aynı origin'den servis edildiği için CORS ayarı gerekmez. Hiçbir CDN, framework veya harici
+font kullanılmaz — projenin offline çalışma garantisi sayfa için de geçerlidir.
+
+İki not:
+
+- **Bounding box'lar yalnızca `Ocr:IncludeRawResult` açıkken** çizilir (Development'ta açık,
+  Production'da kapalı). Kapalıyken sayfa bunu belirtir ve diğer bölümler çalışmaya devam eder.
+- **PDF'lerde görüntü önizlemesi yoktur.** PDF render etmek için bir CDN kütüphanesi gerekirdi
+  ve bu offline garantisini bozardı; alanlar, bloklar ve JSON yine de gösterilir.
+
+Deskew uygulanmış bir belgede kutular doğru hizalanır: tanıma düzeltilmiş kopya üzerinde
+çalıştığı için sayfa, `ocrPages[].appliedRotation` değerini kullanarak blok katmanını orijinal
+görüntünün üstüne geri döndürür.
+
 ## Swagger
 
-<http://localhost:5000/swagger> — `/` redirects there. The analyze endpoint renders a real file
-picker, so an upload can be tested straight from the browser.
+<http://localhost:5000/swagger> — the analyze endpoint renders a real file picker, so an
+upload can be tested straight from the browser. (`/` serves the test UI above.)
 
 ## Example request
 
@@ -299,8 +329,10 @@ that was baked into the sample.
 
 ### Debug mode
 
-`Ocr:IncludeRawResult` adds a `rawOcr` array of every block with its geometry. It is `true` in
-`appsettings.Development.json` and **`false` in production** — raw OCR text is document content.
+`Ocr:IncludeRawResult` adds a `rawOcr` array of every block with its geometry, plus an
+`ocrPages` array carrying each page's `width`, `height` and `appliedRotation` so a viewer can
+scale and align a block overlay. Both are `true` in `appsettings.Development.json` and
+**`false` in production** — raw OCR text is document content.
 
 ---
 
@@ -541,7 +573,7 @@ Branch on codes, never on message text.
 dotnet test
 ```
 
-182 tests, no OCR model loaded — the parser is fed synthetic blocks and `IOcrClient` is stubbed,
+184 tests, no OCR model loaded — the parser is fed synthetic blocks and `IOcrClient` is stubbed,
 so the suite runs in about two seconds.
 
 | Area | Covers |
@@ -725,6 +757,7 @@ TaxCertificateOcr/
 │   │   ├── Middleware/                  GlobalExceptionMiddleware
 │   │   ├── Services/                    Magic-byte validation, concurrency limiter, health
 │   │   ├── Swagger/                     File-upload operation filter
+│   │   ├── wwwroot/                     Dependency-free test UI (index.html)
 │   │   ├── Program.cs
 │   │   └── appsettings.json
 │   │
@@ -754,7 +787,7 @@ TaxCertificateOcr/
 │   └── README.md
 │
 ├── tests/
-│   ├── TaxCertificate.UnitTests/        182 tests, no model loaded
+│   ├── TaxCertificate.UnitTests/        184 tests, no model loaded
 │   └── samples/                         Synthetic levha samples
 │
 ├── scripts/                             run-ocr-service.sh, run-api.sh, smoke-test.sh
