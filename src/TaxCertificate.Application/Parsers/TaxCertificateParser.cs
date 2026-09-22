@@ -72,7 +72,12 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
         var adiSoyadi = ExtractPersonName(workspace);
         var iseBaslama = ExtractDate(workspace, warnings);
         var faaliyetKodu = ExtractActivityCode(workspace, warnings);
-        var faaliyetAciklamasi = ExtractActivityDescription(workspace);
+
+        // When code and description shared one cell, that description is authoritative; only
+        // look for a separately labelled one otherwise.
+        var faaliyetAciklamasi = faaliyetKodu?.CombinedDescription is { } combined
+            ? faaliyetKodu with { Value = combined }
+            : ExtractActivityDescription(workspace);
         var adres = ExtractAddress(workspace);
 
         var data = new TaxCertificateData
@@ -243,7 +248,7 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
                 }
             }
 
-            foreach (var candidate in SpatialMatcher.FindCandidates(labelBlock, workspace.AvailableValues()))
+            foreach (var candidate in SpatialMatcher.FindCandidates(labelBlock, workspace.AvailableNumericValues()))
             {
                 var extraction = DigitExtractor.ExtractFixedLength(
                     candidate.Block.Text, expectedLength, _options.AllowDigitSubstitution);
@@ -299,17 +304,25 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
         int expectedLength,
         Func<string, bool> checksumValidator)
     {
-        var candidates = workspace.AvailableValues()
+        var candidates = workspace.AvailableNumericValues()
             .Select(block => (block, extraction: DigitExtractor.ExtractFixedLength(block.Text, expectedLength, false)))
             .Where(x => x.extraction.HasValue && checksumValidator(x.extraction.Digits))
             .ToList();
 
-        if (candidates.Count != 1)
+        // The same number printed twice - under the barcode and again beside a label the
+        // catalogue does not recognise - is corroboration, not ambiguity. Only genuinely
+        // different values are too risky to choose between.
+        var distinctValues = candidates
+            .Select(x => x.extraction.Digits)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (distinctValues.Count != 1)
         {
             return null;
         }
 
-        var (winner, value) = candidates[0];
+        var (winner, value) = candidates.OrderByDescending(x => x.block.Confidence).First();
         var parser = FieldConfidence.Parser(
             FieldConfidence.StrategyWithoutLabel, 1.0, 1.0, FieldConfidence.ChecksumValid);
 
@@ -390,11 +403,18 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
 
                 // A unvan often wraps onto the next line; pull in continuation lines only.
                 var parts = new List<OcrBlock> { candidate.Block };
-                parts.AddRange(SpatialMatcher.CollectColumnBelow(
-                    candidate.Block,
-                    workspace.AvailableValues().Where(b => !ReferenceEquals(b, candidate.Block)),
-                    b => workspace.IsLabel(b) || workspace.IsConsumed(b) || LooksLikeNewField(b),
-                    maxLines: 1));
+
+                // A line already ending in a company suffix is the complete unvan; extending it
+                // would only drag in the next row.
+                if (!EndsWithOrganizationSuffix(raw))
+                {
+                    parts.AddRange(SpatialMatcher.CollectColumnBelow(
+                        candidate.Block,
+                        workspace.AvailableValues().Where(b => !ReferenceEquals(b, candidate.Block)),
+                        b => workspace.IsLabel(b) || workspace.IsConsumed(b) || LooksLikeNewField(b)
+                             || workspace.BelongsToAnotherLabel(b, labelBlock),
+                        maxLines: 1));
+                }
 
                 var value = string.Join(" ", parts.Select(p => TurkishTextNormalizer.CleanValue(p.Text)));
                 var normalized = TurkishTextNormalizer.Normalize(value);
@@ -418,6 +438,20 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
         }
 
         return null;
+    }
+
+    /// <summary>Company-form suffixes that mark the end of a ticaret unvanı.</summary>
+    private static readonly string[] OrganizationSuffixes =
+    [
+        "AS", "A S", "LTD STI", "STI", "SIRKETI", "ORTAKLIGI", "HOLDING",
+    ];
+
+    private static bool EndsWithOrganizationSuffix(string value)
+    {
+        var normalized = TurkishTextNormalizer.Normalize(value);
+        return OrganizationSuffixes.Any(suffix =>
+            normalized.Equals(suffix, StringComparison.Ordinal) ||
+            normalized.EndsWith(" " + suffix, StringComparison.Ordinal));
     }
 
     private FieldExtraction? ExtractPersonName(ParserWorkspace workspace)
@@ -549,7 +583,10 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
             foreach (var (text, block, geometry) in sources)
             {
                 var raw = TurkishTextNormalizer.CleanValue(text);
-                var normalized = ValueFormats.TryNormalizeActivityCode(raw);
+
+                // "479114-RADYO, TV, ..." - the GİB template puts code and description in one cell.
+                var (splitCode, splitDescription) = ValueFormats.SplitActivityCell(raw);
+                var normalized = splitCode ?? ValueFormats.TryNormalizeActivityCode(raw);
                 if (normalized is null)
                 {
                     continue;
@@ -567,6 +604,7 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
                     normalized, FieldConfidence.Combine(block.Confidence, parser), block)
                 {
                     RawValue = raw,
+                    CombinedDescription = splitDescription,
                 };
             }
         }
@@ -614,7 +652,8 @@ public sealed class TaxCertificateParser : ITaxCertificateParser
             parts.AddRange(SpatialMatcher.CollectColumnBelow(
                 anchor,
                 workspace.AvailableValues().Where(b => !parts.Contains(b)),
-                b => workspace.IsLabel(b) || workspace.IsConsumed(b) || LooksLikeNewField(b),
+                b => workspace.IsLabel(b) || workspace.IsConsumed(b) || LooksLikeNewField(b)
+                     || workspace.BelongsToAnotherLabel(b, labelBlock),
                 maxLines: Math.Max(0, _options.MaxAddressLines - parts.Count)));
 
             var lines = new List<string>();
@@ -816,4 +855,7 @@ internal sealed record FieldExtraction(string Value, double Confidence, OcrBlock
     public bool ChecksumValid { get; init; }
     public bool SubstitutionApplied { get; init; }
     public string? RawValue { get; init; }
+
+    /// <summary>Description read from the same cell as the code, when the template combines them.</summary>
+    public string? CombinedDescription { get; init; }
 }

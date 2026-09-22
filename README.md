@@ -404,6 +404,19 @@ punctuation, but a trailing period belongs to the value — stripping it would t
 
 ### 2. Label detection
 
+Form templates wrap labels across lines — the GİB e-levha splits nearly every label in its
+narrow label column into `VERGİ` / `DAİRESİ`, `VERGİ KİMLİK` / `NO`, `ANA FAALİYET` /
+`KODU VE ADI`. Fragments are therefore searched for **by geometry, not by list order**: blocks
+are sorted top-to-bottom across the whole page, so in a two-column form the halves interleave
+and the two halves of one label end up several entries apart. A stacked, left-aligned chain of
+up to three lines is joined when it matches a longer alias than any fragment did alone.
+
+A join must be explained by the alias **completely**. `VERGİ` + `DAİRESİ` + `VERGİ KİMLİK`
+prefix-matches `VERGİ DAİRESİ`; accepting it returned "VERGİ KİMLİK" as the vergi dairesi value
+*and* destroyed the VKN label underneath, so a partial match is rejected and the correct
+two-line span wins on the next attempt.
+
+
 `LabelCatalog` holds alias lists per field (`VERGİ KİMLİK NUMARASI`, `VERGİ KİMLİK NO`, `VKN`,
 `TİCARET UNVANI`, `TİCARET ÜNVANI`, …) and matches in four escalating steps: exact, label +
 inline value, separator-insensitive compact, then bounded Levenshtein.
@@ -441,7 +454,11 @@ numbers outranking invalid ones regardless of geometry.
 
 ### Field-specific rules
 
-**VKN** — exactly 10 digits. Whitespace and separators are stripped (`123 456 7890` →
+**VKN** — exactly 10 digits. On the GİB e-levha the value is a **barcode with the digits set
+widely apart underneath it**, which the detector usually returns as two or three short runs.
+Digit-only blocks that sit side by side on one line, within 1.5 label-heights of each other,
+are therefore joined into one virtual candidate before matching (at most four, so a row of
+figures cannot snowball). Whitespace and separators are stripped (`123 456 7890` →
 `1234567890`). Letter-to-digit substitution (`O`→`0`, `I`→`1`) is **off by default**: silently
 inventing a different tax number is worse than reporting none. Enabling
 `Parser:AllowDigitSubstitution` emits `DIGIT_SUBSTITUTION_APPLIED` and cuts confidence by 25%.
@@ -455,19 +472,29 @@ never allowed to land in the TCKN field or vice versa.
 Implausible years (before 1900, more than a year ahead) are rejected.
 
 **Ana faaliyet kodu** — `49.41.03` normalises to `494103`, with the raw form preserved in
-`anaFaaliyetKoduRaw`. 4–6 digits accepted. No external NACE lookup.
+`anaFaaliyetKoduRaw`. 4–6 digits accepted. No external NACE lookup. The GİB template prints
+code and description in one cell under a single label
+(`479114-RADYO, TV, POSTA YOLUYLA ... PERAKENDE TİCARET`); that cell is split on the dash, and
+the description taken from it wins over a separately labelled one.
 
 **Ticaret unvanı** — OCR's value is preserved verbatim, casing and Turkish characters included.
 Company markers (`A.Ş.`, `LTD`, `ŞTİ`, `SAN`, `TİC`, `ANONİM`, `LİMİTED`, …) raise the format
 score. A unvan wrapping onto a second line is joined.
 
 **Adres** — collected as a column walk below the label, stopping at the first block that is
-another label, an already-claimed value, a bare identity number or a date. Capped at
+another label, an already-claimed value, a bare identity number, a date, or **a block with a
+different label to its left on the same line**. That last rule is what makes two-column forms
+work: the address value column continues straight into the next row, and only the label sitting
+beside that row marks the end. Capped at
 `MaxAddressLines`. Fields are claimed in order — identity numbers first — so the address can
 never absorb a VKN.
 
 **Vergi dairesi** — a redundant trailing `VERGİ DAİRESİ` / `MÜDÜRLÜĞÜ` is stripped, since the
 label already says what it is: `ÜMRANİYE VERGİ DAİRESİ MÜDÜRLÜĞÜ` → `ÜMRANİYE`.
+
+Some labels are recognised but never extracted: `VERGİ TÜRÜ`, `MÜKELLEFİN`, `TAKVİM`,
+`BEYAN OLUNAN MATRAH`, `TAHAKKUK EDEN VERGİ`, `ONAY KODU`. They exist purely as boundaries —
+without them the address walks straight into the `VERGİ TÜRÜ` row.
 
 ### Document type detection
 
@@ -573,7 +600,7 @@ Branch on codes, never on message text.
 dotnet test
 ```
 
-184 tests, no OCR model loaded — the parser is fed synthetic blocks and `IOcrClient` is stubbed,
+195 tests, no OCR model loaded — the parser is fed synthetic blocks and `IOcrClient` is stubbed,
 so the suite runs in about two seconds.
 
 | Area | Covers |
@@ -585,9 +612,12 @@ so the suite runs in about two seconds.
 | `AnalyzerTests` | Orchestration, raw-OCR gating, no-text case, cancellation |
 | `SpatialMatcherTests` | Below/right preference, geometric window, skew tolerance, cross-page isolation, column walk stop conditions |
 | `ApiLayerTests` | Magic-byte validation, size limits, PII masking, concurrency limiter incl. double-dispose |
+| `GibTemplateTests` | The GİB e-levha two-column layout, driven by coordinates captured from a real OCR run: wrapped labels, partial-join rejection, barcode digits split into fragments or printed with spaces, combined code+description cell, two-column address boundary |
 
 Synthetic samples are in [tests/samples/](tests/samples/): a clean PNG, a skewed JPEG, a
-single-page PDF, a two-page PDF and a non-certificate invoice.
+single-page PDF, a two-page PDF, a non-certificate invoice, and two replicas of the real GİB
+e-levha template (`gib_levha_sahis.png` for a sole trader with a TCKN, `gib_levha_sirket.png`
+for a company) — the layout that exercises wrapped labels and the barcode VKN.
 
 ---
 
@@ -787,7 +817,7 @@ TaxCertificateOcr/
 │   └── README.md
 │
 ├── tests/
-│   ├── TaxCertificate.UnitTests/        184 tests, no model loaded
+│   ├── TaxCertificate.UnitTests/        195 tests, no model loaded
 │   └── samples/                         Synthetic levha samples
 │
 ├── scripts/                             run-ocr-service.sh, run-api.sh, smoke-test.sh

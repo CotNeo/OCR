@@ -208,6 +208,41 @@ public static class ValueFormats
         => value.Year >= 1900 && DateOnly.FromDateTime(value) <= upperBound.AddYears(1);
 
     /// <summary>
+    /// Splits a combined "code - description" cell.
+    /// <para>
+    /// The GİB e-levha prints both in one field under a single "ANA FAALİYET KODU VE ADI"
+    /// label, e.g. "479114-RADYO, TV, POSTA YOLUYLA ... PERAKENDE TİCARET". Returns nulls when
+    /// the text is not in that shape, so a plain code still goes through the normal path.
+    /// </para>
+    /// </summary>
+    public static (string? Code, string? Description) SplitActivityCell(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return (null, null);
+        }
+
+        var trimmed = text.Trim();
+        var separator = trimmed.IndexOfAny(['-', '\u2013', '\u2014']);
+        if (separator <= 0 || separator >= trimmed.Length - 1)
+        {
+            return (null, null);
+        }
+
+        var head = trimmed[..separator].Trim();
+        var tail = trimmed[(separator + 1)..].Trim();
+
+        // The head has to be the code itself: digits only, 4-6 of them.
+        var code = TryNormalizeActivityCode(head);
+        if (code is null || DigitExtractor.DigitsOnly(head).Length != head.Replace(" ", string.Empty).Length)
+        {
+            return (null, null);
+        }
+
+        return (code, tail.Length >= 3 ? tail : null);
+    }
+
+    /// <summary>
     /// Normalises a NACE / ana faaliyet code to digits only ("49.41.03" -> "494103").
     /// Accepts 4 to 6 digits; anything else returns null.
     /// </summary>

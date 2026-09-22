@@ -31,7 +31,7 @@ public static class LabelCatalog
         [TaxCertificateField.Vkn] =
         [
             "VERGİ KİMLİK NUMARASI", "VERGİ KİMLİK NO", "VERGİ KİMLİK NUMARASI (VKN)",
-            "VERGİ NUMARASI", "VERGİ NO", "VKN",
+            "VERGİ NUMARASI", "VERGİ NO", "VKN", "VERGİ KİMLİK",
         ],
         [TaxCertificateField.Tckn] =
         [
@@ -57,7 +57,8 @@ public static class LabelCatalog
         ],
         [TaxCertificateField.AnaFaaliyetKodu] =
         [
-            "ANA FAALİYET KODU", "FAALİYET KODU", "NACE KODU", "ANA FAALİYET KOD",
+            "ANA FAALİYET KODU VE ADI", "ANA FAALİYET KODU VE ADİ", "ANA FAALİYET KODU",
+            "FAALİYET KODU", "NACE KODU", "ANA FAALİYET KOD",
         ],
         [TaxCertificateField.AnaFaaliyetAciklamasi] =
         [
@@ -67,6 +68,14 @@ public static class LabelCatalog
         [TaxCertificateField.Adres] =
         [
             "İŞ YERİ ADRESİ", "İŞYERİ ADRESİ", "MERKEZ ADRESİ", "ADRESİ", "ADRES",
+        ],
+        // Not extracted. Present so the multi-line collectors know where a value ends -
+        // without these the address walks straight into the "VERGİ TÜRÜ" row.
+        [TaxCertificateField.Boundary] =
+        [
+            "VERGİ TÜRÜ", "MÜKELLEFİN", "TAKVİM", "BEYAN OLUNAN MATRAH",
+            "TAHAKKUK EDEN VERGİ", "ONAY KODU", "GELİR İDARESİ BAŞKANLIĞI",
+            "HAZİNE VE MALİYE BAKANLIĞI", "VERGİ LEVHASI",
         ],
     });
 

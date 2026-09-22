@@ -12,4 +12,10 @@ public enum TaxCertificateField
     AnaFaaliyetKodu,
     AnaFaaliyetAciklamasi,
     Adres,
+
+    /// <summary>
+    /// Recognised but not extracted. These exist purely as boundaries: knowing that
+    /// "VERGİ TÜRÜ" is a label stops the address collector from walking into its value.
+    /// </summary>
+    Boundary,
 }
